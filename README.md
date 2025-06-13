@@ -3,7 +3,7 @@ This file (index.html) serves as the public-facing landing page for the NetFlow 
 Here's an updated GitHub README description, focusing on the admin dashboard and its objectives, while integrating with the existing project goals.
 
 ---
-## NetFlow Billing Landing Page (`landing-page.html`) & Admin Dashboard (`hotspot-dashboard-pages.html`)
+## NetFlow Billing Landing Page (`index.html`) & Admin Dashboard (`admin.html`)
 
 This repository contains the front-end (HTML/CSS/JS) for the NetFlow Billing hotspot management system, comprising a public-facing **landing page** and an **admin dashboard**.
 
@@ -22,9 +22,9 @@ This project is being developed using the following technologies:
 
 ---
 
-### Admin Dashboard Overview (`hotspot-dashboard-pages.html`)
+### Admin Dashboard Overview (`admin.html`)
 
-The `hotspot-dashboard-pages.html` file represents the administrative interface for managing the NetFlow Billing system. The current MVP provides a clean, responsive, and functional overview.
+The `admin.html` file represents the administrative interface for managing the NetFlow Billing system. The current MVP provides a clean, responsive, and functional overview.
 
 **Current State (MVP)**
 
