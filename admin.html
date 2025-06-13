@@ -1,0 +1,1368 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hotspot Management System - Admin Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#2563eb',
+                        secondary: '#0ea5e9',
+                        accent: '#8b5cf6',
+                        dark: '#1e293b',
+                        light: '#f1f5f9'
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            font-family: "Inter", sans-serif; /* Ensuring Inter font is used */
+        }
+        .sidebar {
+            transition: all 0.3s ease;
+        }
+        .dashboard-card {
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        .dashboard-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
+        }
+        .dropdown-content {
+            display: none;
+            transition: opacity 0.2s ease, transform 0.2s ease;
+        }
+        .dropdown:hover .dropdown-content {
+            display: block;
+            opacity: 0;
+            transform: translateY(-10px);
+            animation: fadeIn 0.3s forwards;
+        }
+        @keyframes fadeIn {
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        .chart-container {
+            height: 300px;
+        }
+        .vendor-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+        .mikrotik-badge {
+            background-color: #ff7d00;
+            color: white;
+        }
+        .ubiquiti-badge {
+            background-color: #0559C9;
+            color: white;
+        }
+        .status-indicator {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 6px;
+        }
+        .status-online {
+            background-color: #10b981;
+        }
+        .status-offline {
+            background-color: #ef4444;
+        }
+        /* Mobile responsiveness for sidebar */
+        @media (max-width: 768px) {
+            .sidebar {
+                transform: translateX(-100%);
+                position: fixed;
+                height: 100vh; /* Full height on mobile */
+            }
+            .sidebar.active {
+                transform: translateX(0);
+            }
+            .content-section {
+                padding-top: 5rem; /* Adjust content padding for fixed header on mobile */
+            }
+        }
+        /* Hide all content sections by default, show only the active one */
+        .content-section {
+            display: none;
+        }
+        .content-section.active {
+            display: block;
+        }
+        /* Style for form inputs and selects */
+        .form-input {
+            border: 1px solid #e2e8f0; /* Tailwind's border-gray-300 */
+            padding: 0.5rem 0.75rem;
+            border-radius: 0.375rem; /* Tailwind's rounded-md */
+            width: 100%;
+            font-size: 0.875rem; /* Tailwind's text-sm */
+            box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05); /* Tailwind's shadow-sm */
+            transition: all 0.15s ease-in-out;
+        }
+        .form-input:focus {
+            outline: none;
+            border-color: #2563eb; /* Tailwind's focus:border-primary */
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.3); /* Tailwind's focus:ring-primary with opacity */
+        }
+        .form-select {
+            appearance: none; /* Remove default arrow */
+            background-image: url('data:image/svg+xml;charset=UTF-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2020%2020%22%20fill%3D%22none%22%20stroke%3D%22currentColor%22%20stroke-width%3D%221.5%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpolyline%20points%3D%226%209%2012%2015%2018%209%22%2F%3E%3C%2Fsvg%3E'); /* Custom arrow */
+            background-repeat: no-repeat;
+            background-position: right 0.75rem center;
+            background-size: 1rem;
+            padding-right: 2.5rem; /* Space for the custom arrow */
+        }
+
+        /* Modal specific styles */
+        .modal {
+            display: none; /* Hidden by default */
+            position: fixed; /* Stay in place */
+            z-index: 100; /* Sit on top */
+            left: 0;
+            top: 0;
+            width: 100%; /* Full width */
+            height: 100%; /* Full height */
+            overflow: auto; /* Enable scroll if needed */
+            background-color: rgba(0,0,0,0.4); /* Black w/ opacity */
+            align-items: center;
+            justify-content: center;
+        }
+        .modal.open {
+            display: flex;
+        }
+        .modal-content {
+            background-color: #fefefe;
+            margin: auto; /* Centered */
+            padding: 20px;
+            border-radius: 0.75rem; /* Tailwind's rounded-xl */
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+            position: relative;
+            max-width: 90%; /* Responsive width */
+            width: 500px; /* Max width for desktop */
+        }
+        .modal-close-button {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            color: #aaa;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        .modal-close-button:hover,
+        .modal-close-button:focus {
+            color: #000;
+            text-decoration: none;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen flex">
+    <!-- Sidebar Navigation -->
+    <div class="sidebar bg-dark text-white w-64 min-h-screen fixed md:relative z-20 rounded-r-lg shadow-lg">
+        <div class="p-4 border-b border-gray-700 flex items-center gap-3">
+            <div class="bg-blue-600 p-2 rounded-lg">
+                <i class="fas fa-wifi text-xl"></i>
+            </div>
+            <div>
+                <h1 class="text-xl font-bold">Hotspot Manager</h1>
+                <p class="text-gray-400 text-sm mt-1">Admin Dashboard</p>
+            </div>
+        </div>
+        
+        <nav class="p-2 mt-4">
+            <ul class="space-y-1">
+                <li>
+                    <a href="#" class="sidebar-link flex items-center gap-3 p-3 rounded-lg bg-primary text-white" data-target="dashboard-content">
+                        <i class="fas fa-chart-line"></i>
+                        <span>Dashboard</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="#" class="sidebar-link flex items-center gap-3 p-3 rounded-lg text-gray-300 hover:bg-gray-800 hover:text-white" data-target="hotspots-content">
+                        <i class="fas fa-wifi"></i>
+                        <span>Hotspots</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="#" class="sidebar-link flex items-center gap-3 p-3 rounded-lg text-gray-300 hover:bg-gray-800 hover:text-white" data-target="users-content">
+                        <i class="fas fa-users"></i>
+                        <span>Users</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="#" class="sidebar-link flex items-center gap-3 p-3 rounded-lg text-gray-300 hover:bg-gray-800 hover:text-white" data-target="vouchers-content">
+                        <i class="fas fa-ticket-alt"></i>
+                        <span>Vouchers</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="#" class="sidebar-link flex items-center gap-3 p-3 rounded-lg text-gray-300 hover:bg-gray-800 hover:text-white" data-target="bandwidth-content">
+                        <i class="fas fa-tachometer-alt"></i>
+                        <span>Bandwidth</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="#" class="sidebar-link flex items-center gap-3 p-3 rounded-lg text-gray-300 hover:bg-gray-800 hover:text-white" data-target="reports-content">
+                        <i class="fas fa-chart-bar"></i>
+                        <span>Reports</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="#" class="sidebar-link flex items-center gap-3 p-3 rounded-lg text-gray-300 hover:bg-gray-800 hover:text-white" data-target="settings-content">
+                        <i class="fas fa-cog"></i>
+                        <span>Settings</span>
+                    </a>
+                </li>
+                <li class="mt-8">
+                    <a href="#" class="flex items-center gap-3 p-3 rounded-lg text-gray-300 hover:bg-gray-800 hover:text-white">
+                        <i class="fas fa-sign-out-alt"></i>
+                        <span>Logout</span>
+                    </a>
+                </li>
+            </ul>
+        </nav>
+    </div>
+    
+    <!-- Main Content -->
+    <div class="flex-1 flex flex-col overflow-hidden">
+        <!-- Top Bar -->
+        <header class="bg-white border-b border-gray-200 p-4 flex items-center justify-between shadow-sm">
+            <div class="flex items-center">
+                <button class="md:hidden mr-3 text-gray-600" id="menu-toggle">
+                    <i class="fas fa-bars text-xl"></i>
+                </button>
+                <h2 class="text-xl font-semibold text-gray-800" id="page-title">Dashboard</h2>
+            </div>
+            <div class="flex items-center gap-4">
+                <div class="relative">
+                    <button class="p-2 rounded-full hover:bg-gray-100">
+                        <i class="fas fa-bell text-gray-600"></i>
+                    </button>
+                    <span class="absolute top-0 right-0 w-3 h-3 bg-red-500 rounded-full animate-pulse"></span>
+                </div>
+                <div class="flex items-center gap-2">
+                    <div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-white font-bold">A</div>
+                    <span class="hidden md:inline text-gray-700">Admin</span>
+                </div>
+            </div>
+        </header>
+        
+        <!-- Dashboard Content Section -->
+        <main id="dashboard-content" class="flex-1 overflow-y-auto p-4 bg-gray-50 content-section active">
+            <!-- Dashboard Stats -->
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                <div class="dashboard-card bg-white rounded-xl shadow p-5 border-l-4 border-blue-500">
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <h3 class="text-gray-500 text-sm font-medium">Active Hotspots</h3>
+                            <p class="text-2xl font-bold mt-1">24</p>
+                        </div>
+                        <div class="p-3 rounded-lg bg-blue-100 text-blue-600">
+                            <i class="fas fa-wifi text-xl"></i>
+                        </div>
+                    </div>
+                    <div class="mt-4">
+                        <div class="flex items-center text-sm text-gray-500">
+                            <span class="status-indicator status-online"></span>
+                            <span>18 online</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="dashboard-card bg-white rounded-xl shadow p-5 border-l-4 border-green-500">
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <h3 class="text-gray-500 text-sm font-medium">Active Users</h3>
+                            <p class="text-2xl font-bold mt-1">187</p>
+                        </div>
+                        <div class="p-3 rounded-lg bg-green-100 text-green-600">
+                            <i class="fas fa-users text-xl"></i>
+                        </div>
+                    </div>
+                    <div class="mt-4">
+                        <div class="flex items-center text-sm text-gray-500">
+                            <i class="fas fa-arrow-up text-green-500 mr-1"></i>
+                            <span>42 new today</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="dashboard-card bg-white rounded-xl shadow p-5 border-l-4 border-purple-500">
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <h3 class="text-gray-500 text-sm font-medium">Data Usage</h3>
+                            <p class="text-2xl font-bold mt-1">342 GB</p>
+                        </div>
+                        <div class="p-3 rounded-lg bg-purple-100 text-purple-600">
+                            <i class="fas fa-database text-xl"></i>
+                        </div>
+                    </div>
+                    <div class="mt-4">
+                        <div class="flex items-center text-sm text-gray-500">
+                            <i class="fas fa-exchange-alt text-blue-500 mr-1"></i>
+                            <span>Daily average</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="dashboard-card bg-white rounded-xl shadow p-5 border-l-4 border-yellow-500">
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <h3 class="text-gray-500 text-sm font-medium">Revenue</h3>
+                            <p class="text-2xl font-bold mt-1">Kes 5,780</p>
+                        </div>
+                        <div class="p-3 rounded-lg bg-yellow-100 text-yellow-600">
+                            <i class="fas fa-money-bill-wave text-xl"></i>
+                        </div>
+                    </div>
+                    <div class="mt-4">
+                        <div class="flex items-center text-sm text-gray-500">
+                            <i class="fas fa-arrow-up text-green-500 mr-1"></i>
+                            <span>15% from last week</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Charts Row -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                <!-- Active Users Chart -->
+                <div class="bg-white rounded-xl shadow p-5">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="text-lg font-semibold">Active Users (Last 7 Days)</h3>
+                        <div class="relative">
+                            <button class="text-gray-500 hover:text-gray-700">
+                                <i class="fas fa-ellipsis-h"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="usersChart"></canvas>
+                    </div>
+                </div>
+                
+                <!-- Data Usage Chart -->
+                <div class="bg-white rounded-xl shadow p-5">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="text-lg font-semibold">Data Usage (GB)</h3>
+                        <div class="relative">
+                            <button class="text-gray-500 hover:text-gray-700">
+                                <i class="fas fa-ellipsis-h"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="dataChart"></canvas>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Recent Activity -->
+            <div class="grid grid-cols-1 lg:grid-cols-1 gap-6">
+                <!-- Active Hotspots -->
+                <div class="bg-white rounded-xl shadow">
+                    <div class="px-5 py-4 border-b border-gray-200 flex items-center justify-between">
+                        <h3 class="text-lg font-medium text-gray-900">Active Hotspots</h3>
+                        <button class="text-sm px-4 py-2 bg-primary text-white rounded-md hover:bg-blue-700">
+                            Manage
+                        </button>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full divide-y divide-gray-200">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Hotspot</th>
+                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Location</th>
+                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Vendor</th>
+                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Users</th>
+                                </tr>
+                            </thead>
+                            <tbody class="bg-white divide-y divide-gray-200">
+                                <tr>
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <div class="flex items-center">
+                                            <div class="flex-shrink-0 h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600">
+                                                <i class="fas fa-wifi"></i>
+                                            </div>
+                                            <div class="ml-4">
+                                                <div class="text-sm font-medium text-gray-900">Main Office</div>
+                                                <div class="text-sm text-gray-500">192.168.1.1</div>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">Nairobi</td>
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <span class="vendor-badge mikrotik-badge">MikroTik</span>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <span class="flex items-center">
+                                            <span class="status-indicator status-online"></span>
+                                            <span>Online</span>
+                                        </span>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">42</td>
+                                </tr>
+                                
+                                <tr>
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <div class="flex items-center">
+                                            <div class="flex-shrink-0 h-10 w-10 rounded-full bg-green-100 flex items-center justify-center text-green-600">
+                                                <i class="fas fa-wifi"></i>
+                                            </div>
+                                            <div class="ml-4">
+                                                <div class="text-sm font-medium text-gray-900">Coffee Shop</div>
+                                                <div class="text-sm text-gray-500">192.168.2.1</div>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">Kiambu</td>
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <span class="vendor-badge ubiquiti-badge">Ubiquiti</span>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <span class="flex items-center">
+                                            <span class="status-indicator status-online"></span>
+                                            <span>Online</span>
+                                        </span>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">28</td>
+                                </tr>
+                                
+                                <tr>
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <div class="flex items-center">
+                                            <div class="flex-shrink-0 h-10 w-10 rounded-full bg-red-100 flex items-center justify-center text-red-600">
+                                                <i class="fas fa-wifi"></i>
+                                            </div>
+                                            <div class="ml-4">
+                                                <div class="text-sm font-medium text-gray-900">Retail Store</div>
+                                                <div class="text-sm text-gray-500">192.168.3.1</div>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <span class="vendor-badge mikrotik-badge">MikroTik</span>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <span class="flex items-center">
+                                            <span class="status-indicator status-offline"></span>
+                                            <span>Offline</span>
+                                        </span>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">0</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Vendor Compatibility Section -->
+            <div class="mt-6 bg-white rounded-xl shadow">
+                <div class="px-5 py-4 border-b border-gray-200">
+                    <h3 class="text-lg font-medium text-gray-900">Router Compatibility</h3>
+                </div>
+                <div class="p-5 grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="border rounded-lg p-4">
+                        <div class="flex items-center gap-3 mb-3">
+                            <div class="bg-orange-500 p-2 rounded-lg">
+                                <i class="fas fa-router text-white text-xl"></i>
+                            </div>
+                            <h4 class="text-lg font-semibold">MikroTik Routers</h4>
+                        </div>
+                        <ul class="space-y-2 text-gray-600">
+                            <li class="flex items-center gap-2">
+                                <i class="fas fa-check-circle text-green-500"></i>
+                                <span>Full RouterOS API integration</span>
+                            </li>
+                            <li class="flex items-center gap-2">
+                                <i class="fas fa-check-circle text-green-500"></i>
+                                <span>User management via /ip/hotspot/user</span>
+                            </li>
+                            <li class="flex items-center gap-2">
+                                <i class="fas fa-check-circle text-green-500"></i>
+                                <span>Bandwidth control with Queue Trees</span>
+                            </li>
+                            <li class="flex items-center gap-2">
+                                <i class="fas fa-check-circle text-green-500"></i>
+                                <span>Real-time monitoring</span>
+                            </li>
+                        </ul>
+                    </div>
+                    
+                    <div class="border rounded-lg p-4">
+                        <div class="flex items-center gap-3 mb-3">
+                            <div class="bg-blue-800 p-2 rounded-lg">
+                                <i class="fas fa-satellite-dish text-white text-xl"></i>
+                            </div>
+                            <h4 class="text-lg font-semibold">Ubiquiti Devices</h4>
+                        </div>
+                        <ul class="space-y-2 text-gray-600">
+                            <li class="flex items-center gap-2">
+                                <i class="fas fa-check-circle text-green-500"></i>
+                                <span>UniFi Controller API integration</span>
+                            </li>
+                            <li class="flex items-center gap-2">
+                                <i class="fas fa-check-circle text-green-500"></i>
+                                <span>Guest portal customization</span>
+                            </li>
+                            <li class="flex items-center gap-2">
+                                <i class="fas fa-check-circle text-green-500"></i>
+                                <span>User Groups for bandwidth profiles</span>
+                            </li>
+                            <li class="flex items-center gap-2">
+                                <i class="fas fa-check-circle text-green-500"></i>
+                                <span>Voucher system support</span>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- Hotspots Content Section -->
+        <main id="hotspots-content" class="flex-1 overflow-y-auto p-4 bg-gray-50 content-section">
+            <div class="bg-white rounded-xl shadow p-5 mt-6">
+                <div class="px-5 py-4 border-b border-gray-200 flex items-center justify-between">
+                    <h3 class="text-lg font-medium text-gray-900">All Hotspots</h3>
+                    <button id="openHotspotModal" class="text-sm px-4 py-2 bg-primary text-white rounded-md hover:bg-blue-700">
+                        <i class="fas fa-plus mr-2"></i>Add New Hotspot
+                    </button>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Hotspot Name</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">IP Address</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Location</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Vendor</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Connected Users</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody class="bg-white divide-y divide-gray-200">
+                            <tr>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">Main Office Hotspot</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">192.168.1.1</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">Nairobi CBD</td>
+                                <td class="px-6 py-4 whitespace-nowrap"><span class="vendor-badge mikrotik-badge">MikroTik</span></td>
+                                <td class="px-6 py-4 whitespace-nowrap"><span class="flex items-center"><span class="status-indicator status-online"></span>Online</span></td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">42</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                    <a href="#" class="text-primary hover:text-blue-900 mr-3">Edit</a>
+                                    <a href="#" class="text-red-600 hover:text-red-900">Delete</a>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">Coffee Shop Hotspot</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">192.168.2.1</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">Kiambu Town</td>
+                                <td class="px-6 py-4 whitespace-nowrap"><span class="vendor-badge ubiquiti-badge">Ubiquiti</span></td>
+                                <td class="px-6 py-4 whitespace-nowrap"><span class="flex items-center"><span class="status-indicator status-online"></span>Online</span></td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">28</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                    <a href="#" class="text-primary hover:text-blue-900 mr-3">Edit</a>
+                                    <a href="#" class="text-red-600 hover:text-red-900">Delete</a>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">Retail Store Hotspot</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">192.168.3.1</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">Thika Main St.</td>
+                                <td class="px-6 py-4 whitespace-nowrap"><span class="vendor-badge mikrotik-badge">MikroTik</span></td>
+                                <td class="px-6 py-4 whitespace-nowrap"><span class="flex items-center"><span class="status-indicator status-offline"></span>Offline</span></td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">0</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                    <a href="#" class="text-primary hover:text-blue-900 mr-3">Edit</a>
+                                    <a href="#" class="text-red-600 hover:text-red-900">Delete</a>
+                                </td>
+                            </tr>
+                             <tr>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">Hotel Lobby WiFi</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">10.0.0.1</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">Mombasa Beach</td>
+                                <td class="px-6 py-4 whitespace-nowrap"><span class="vendor-badge ubiquiti-badge">Ubiquiti</span></td>
+                                <td class="px-6 py-4 whitespace-nowrap"><span class="flex items-center"><span class="status-indicator status-online"></span>Online</span></td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">75</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                    <a href="#" class="text-primary hover:text-blue-900 mr-3">Edit</a>
+                                    <a href="#" class="text-red-600 hover:text-red-900">Delete</a>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </main>
+
+        <!-- Users Content Section -->
+        <main id="users-content" class="flex-1 overflow-y-auto p-4 bg-gray-50 content-section">
+            <div class="bg-white rounded-xl shadow p-5 mt-6">
+                <div class="px-5 py-4 border-b border-gray-200 flex items-center justify-between">
+                    <h3 class="text-lg font-medium text-gray-900">Hotspot Users</h3>
+                    <button id="openUserModal" class="text-sm px-4 py-2 bg-primary text-white rounded-md hover:bg-blue-700">
+                        <i class="fas fa-user-plus mr-2"></i>Add New User
+                    </button>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Username</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Data Used</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Plan</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Last Login</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody class="bg-white divide-y divide-gray-200">
+                            <tr>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">john.doe</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">john.doe@example.com</td>
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">Active</span>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">12.5 GB</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">Premium 24h</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">2024-06-10 10:30</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                    <a href="#" class="text-primary hover:text-blue-900 mr-3">Edit</a>
+                                    <a href="#" class="text-red-600 hover:text-red-900">Suspend</a>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">jane.smith</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">jane.smith@example.com</td>
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">Pending</span>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">0 GB</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">Free 1h</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">N/A</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                    <a href="#" class="text-primary hover:text-blue-900 mr-3">Edit</a>
+                                    <a href="#" class="text-red-600 hover:text-red-900">Delete</a>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">mike.brown</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">mike.brown@example.com</td>
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">Inactive</span>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">5.8 GB</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">Standard 7d</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">2024-05-25 14:00</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                    <a href="#" class="text-primary hover:text-blue-900 mr-3">Edit</a>
+                                    <a href="#" class="text-red-600 hover:text-red-900">Activate</a>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </main>
+
+        <!-- Vouchers Content Section -->
+        <main id="vouchers-content" class="flex-1 overflow-y-auto p-4 bg-gray-50 content-section">
+            <div class="bg-white rounded-xl shadow p-5 mt-6">
+                <div class="px-5 py-4 border-b border-gray-200 flex items-center justify-between">
+                    <h3 class="text-lg font-medium text-gray-900">Generated Vouchers</h3>
+                    <button id="openVoucherModal" class="text-sm px-4 py-2 bg-primary text-white rounded-md hover:bg-blue-700">
+                        <i class="fas fa-ticket-alt mr-2"></i>Generate New Vouchers
+                    </button>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Code</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Duration</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Bandwidth Limit</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Used By</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Generated On</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody class="bg-white divide-y divide-gray-200">
+                            <tr>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">VOUCHER-12345</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">24 hours</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">10 Mbps</td>
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">Active</span>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">user123</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">2024-06-08</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                    <a href="#" class="text-primary hover:text-blue-900 mr-3">View</a>
+                                    <a href="#" class="text-red-600 hover:text-red-900">Delete</a>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">VOUCHER-67890</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">7 days</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">Unlimited</td>
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">Unused</span>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">N/A</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">2024-06-01</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                    <a href="#" class="text-primary hover:text-blue-900 mr-3">View</a>
+                                    <a href="#" class="text-red-600 hover:text-red-900">Delete</a>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">VOUCHER-ABCDE</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">1 hour</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">5 Mbps</td>
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">Expired</span>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">guest_user</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">2024-05-20</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                    <a href="#" class="text-primary hover:text-blue-900 mr-3">View</a>
+                                    <a href="#" class="text-red-600 hover:text-red-900">Delete</a>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </main>
+
+        <!-- Bandwidth Content Section -->
+        <main id="bandwidth-content" class="flex-1 overflow-y-auto p-4 bg-gray-50 content-section">
+            <div class="bg-white rounded-xl shadow p-5 mb-6">
+                <div class="px-5 py-4 border-b border-gray-200">
+                    <h3 class="text-lg font-medium text-gray-900">Overall Bandwidth Usage</h3>
+                </div>
+                <div class="p-5 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <div class="border rounded-lg p-4 text-center">
+                        <p class="text-gray-500 text-sm">Total Download</p>
+                        <p class="text-3xl font-bold text-primary mt-2">750 GB</p>
+                    </div>
+                    <div class="border rounded-lg p-4 text-center">
+                        <p class="text-gray-500 text-sm">Total Upload</p>
+                        <p class="text-3xl font-bold text-secondary mt-2">320 GB</p>
+                    </div>
+                    <div class="border rounded-lg p-4 text-center">
+                        <p class="text-gray-500 text-sm">Average Daily Usage</p>
+                        <p class="text-3xl font-bold text-accent mt-2">35 GB</p>
+                    </div>
+                </div>
+                <div class="chart-container mt-6">
+                    <canvas id="bandwidthFlowChart"></canvas>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-xl shadow p-5">
+                <div class="px-5 py-4 border-b border-gray-200">
+                    <h3 class="text-lg font-medium text-gray-900">Top Users by Data Usage (Current Month)</h3>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Rank</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Username</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Hotspot</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total Data (GB)</th>
+                            </tr>
+                        </thead>
+                        <tbody class="bg-white divide-y divide-gray-200">
+                            <tr>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">1</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">power_user_1</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">Main Office</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">98.2</td>
+                            </tr>
+                            <tr>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">2</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">stream_fanatic</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">Coffee Shop</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">72.1</td>
+                            </tr>
+                            <tr>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">3</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">remote_worker</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">Main Office</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">55.6</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </main>
+
+        <!-- Reports Content Section -->
+        <main id="reports-content" class="flex-1 overflow-y-auto p-4 bg-gray-50 content-section">
+            <div class="bg-white rounded-xl shadow p-5">
+                <div class="px-5 py-4 border-b border-gray-200">
+                    <h3 class="text-lg font-medium text-gray-900">Generate Reports</h3>
+                    <p class="text-sm text-gray-600 mt-1">Select parameters and generate various performance and usage reports.</p>
+                </div>
+                <form class="p-5 space-y-4">
+                    <div>
+                        <label for="reportType" class="block text-sm font-medium text-gray-700 mb-1">Report Type</label>
+                        <select id="reportType" class="form-input form-select">
+                            <option>User Activity Report</option>
+                            <option>Hotspot Performance Report</option>
+                            <option>Voucher Usage Report</option>
+                            <option>Revenue Report</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="reportDateRange" class="block text-sm font-medium text-gray-700 mb-1">Date Range</label>
+                        <input type="text" id="reportDateRange" class="form-input" placeholder="e.g., Last 30 days or YYYY-MM-DD to YYYY-MM-DD">
+                    </div>
+                    <div>
+                        <label for="hotspotFilter" class="block text-sm font-medium text-gray-700 mb-1">Filter by Hotspot (Optional)</label>
+                        <select id="hotspotFilter" class="form-input form-select">
+                            <option value="">All Hotspots</option>
+                            <option value="main-office">Main Office Hotspot</option>
+                            <option value="coffee-shop">Coffee Shop Hotspot</option>
+                            <option value="retail-store">Retail Store Hotspot</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="outputFormat" class="block text-sm font-medium text-gray-700 mb-1">Output Format</label>
+                        <select id="outputFormat" class="form-input form-select">
+                            <option>PDF</option>
+                            <option>CSV</option>
+                            <option>JSON</option>
+                        </select>
+                    </div>
+                    <div class="pt-2">
+                        <button type="submit" class="px-6 py-2 bg-primary text-white font-semibold rounded-md hover:bg-blue-700 shadow-md">
+                            <i class="fas fa-file-export mr-2"></i>Generate Report
+                        </button>
+                    </div>
+                </form>
+                <div class="mt-8 px-5 py-4 border-t border-gray-200">
+                    <h4 class="text-md font-medium text-gray-800">Recent Reports</h4>
+                    <ul class="mt-4 space-y-3">
+                        <li class="flex justify-between items-center bg-gray-50 p-3 rounded-lg">
+                            <span class="text-gray-700">User Activity Report - May 2024</span>
+                            <a href="#" class="text-primary hover:underline">Download PDF</a>
+                        </li>
+                        <li class="flex justify-between items-center bg-gray-50 p-3 rounded-lg">
+                            <span class="text-gray-700">Hotspot Performance - Q1 2024</span>
+                            <a href="#" class="text-primary hover:underline">Download CSV</a>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </main>
+
+        <!-- Settings Content Section -->
+        <main id="settings-content" class="flex-1 overflow-y-auto p-4 bg-gray-50 content-section">
+            <div class="bg-white rounded-xl shadow p-5">
+                <div class="px-5 py-4 border-b border-gray-200">
+                    <h3 class="text-lg font-medium text-gray-900">System Settings</h3>
+                    <p class="text-sm text-gray-600 mt-1">Manage application preferences, integrations, and user roles.</p>
+                </div>
+                <form class="p-5 space-y-6">
+                    <div>
+                        <h4 class="text-md font-medium text-gray-800 mb-3">General Settings</h4>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label for="systemName" class="block text-sm font-medium text-gray-700">System Name</label>
+                                <input type="text" id="systemName" class="form-input" value="Hotspot Manager PRO">
+                            </div>
+                            <div>
+                                <label for="currency" class="block text-sm font-medium text-gray-700">Currency</label>
+                                <select id="currency" class="form-input form-select">
+                                    <option>KES - Kenyan Shilling</option>
+                                    <option>USD - US Dollar</option>
+                                    <option>EUR - Euro</option>
+                                </select>
+                            </div>
+                             <div>
+                                <label for="timezone" class="block text-sm font-medium text-gray-700">Timezone</label>
+                                <select id="timezone" class="form-input form-select">
+                                    <option>Africa/Nairobi (EAT)</option>
+                                    <option>Europe/London (GMT)</option>
+                                    <option>America/New_York (EST)</option>
+                                </select>
+                            </div>
+                             <div>
+                                <label for="defaultLanguage" class="block text-sm font-medium text-gray-700">Default Language</label>
+                                <select id="defaultLanguage" class="form-input form-select">
+                                    <option>English</option>
+                                    <option>Swahili</option>
+                                    <option>French</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div>
+                        <h4 class="text-md font-medium text-gray-800 mb-3">Integration Settings</h4>
+                        <div class="space-y-4">
+                            <div class="border p-4 rounded-lg bg-gray-50">
+                                <p class="font-medium text-gray-900 mb-2">MikroTik API Configuration</p>
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div>
+                                        <label for="mikrotikIP" class="block text-sm font-medium text-gray-700 mb-1">Router IP</label>
+                                        <input type="text" id="mikrotikIP" class="form-input" placeholder="e.g., 192.168.88.1">
+                                    </div>
+                                    <div>
+                                        <label for="mikrotikUser" class="block text-sm font-medium text-gray-700 mb-1">API Username</label>
+                                        <input type="text" id="mikrotikUser" class="form-input" placeholder="e.g., api_user">
+                                    </div>
+                                    <div class="md:col-span-2">
+                                        <label for="mikrotikPassword" class="block text-sm font-medium text-gray-700 mb-1">API Password</label>
+                                        <input type="password" id="mikrotikPassword" class="form-input" placeholder="********">
+                                    </div>
+                                    <div class="md:col-span-2 flex items-center mt-2">
+                                        <input type="checkbox" id="mikrotikEnabled" class="h-4 w-4 text-primary rounded border-gray-300 focus:ring-primary mr-2">
+                                        <label for="mikrotikEnabled" class="text-sm font-medium text-gray-700">Enable MikroTik Integration</label>
+                                    </div>
+                                </div>
+                            </div>
+                             <div class="border p-4 rounded-lg bg-gray-50">
+                                <p class="font-medium text-gray-900 mb-2">Ubiquiti UniFi API Configuration</p>
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div>
+                                        <label for="unifiControllerIP" class="block text-sm font-medium text-gray-700 mb-1">Controller IP/Hostname</label>
+                                        <input type="text" id="unifiControllerIP" class="form-input" placeholder="e.g., 192.168.1.100">
+                                    </div>
+                                    <div>
+                                        <label for="unifiPort" class="block text-sm font-medium text-gray-700 mb-1">Controller Port</label>
+                                        <input type="number" id="unifiPort" class="form-input" value="8443" placeholder="e.g., 8443">
+                                    </div>
+                                    <div>
+                                        <label for="unifiUser" class="block text-sm font-medium text-gray-700 mb-1">API Username</label>
+                                        <input type="text" id="unifiUser" class="form-input" placeholder="e.g., unifi_api">
+                                    </div>
+                                    <div>
+                                        <label for="unifiPassword" class="block text-sm font-medium text-gray-700 mb-1">API Password</label>
+                                        <input type="password" id="unifiPassword" class="form-input" placeholder="********">
+                                    </div>
+                                    <div class="md:col-span-2 flex items-center mt-2">
+                                        <input type="checkbox" id="unifiEnabled" class="h-4 w-4 text-primary rounded border-gray-300 focus:ring-primary mr-2">
+                                        <label for="unifiEnabled" class="text-sm font-medium text-gray-700">Enable UniFi Integration</label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div>
+                        <h4 class="text-md font-medium text-gray-800 mb-3">User Management</h4>
+                        <div class="space-y-4">
+                            <div class="border p-3 rounded-lg bg-gray-50 flex items-center justify-between">
+                                <div>
+                                    <p class="font-medium text-gray-900">User Roles and Permissions</p>
+                                    <p class="text-sm text-gray-600">Define access levels for different administrators.</p>
+                                </div>
+                                <button type="button" class="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 text-sm">Manage Roles</button>
+                            </div>
+                             <div class="border p-3 rounded-lg bg-gray-50 flex items-center justify-between">
+                                <div>
+                                    <p class="font-medium text-gray-900">Authentication Methods</p>
+                                    <p class="text-sm text-gray-600">Configure allowed login methods (e.g., username/password, social login).</p>
+                                </div>
+                                <button type="button" class="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 text-sm">Configure</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="flex justify-end pt-4 border-t border-gray-200">
+                        <button type="submit" class="px-6 py-2 bg-green-500 text-white font-semibold rounded-md hover:bg-green-600 shadow-md">
+                            <i class="fas fa-save mr-2"></i>Save Changes
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </main>
+    </div>
+    
+    <!-- Mobile Menu Overlay -->
+    <div class="fixed inset-0 z-10 bg-black bg-opacity-50 hidden" id="overlay"></div>
+
+    <!-- Modals -->
+    <!-- Add Hotspot Modal -->
+    <div id="hotspotModal" class="modal">
+        <div class="modal-content">
+            <span class="modal-close-button" data-modal="hotspotModal">&times;</span>
+            <h3 class="text-lg font-semibold text-gray-900 mb-4">Add New Hotspot</h3>
+            <form class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label for="modalHotspotName" class="block text-sm font-medium text-gray-700 mb-1">Hotspot Name</label>
+                    <input type="text" id="modalHotspotName" class="form-input" placeholder="e.g., Main Office Hotspot">
+                </div>
+                <div>
+                    <label for="modalIpAddress" class="block text-sm font-medium text-gray-700 mb-1">IP Address</label>
+                    <input type="text" id="modalIpAddress" class="form-input" placeholder="e.g., 192.168.1.1">
+                </div>
+                <div>
+                    <label for="modalHotspotLocation" class="block text-sm font-medium text-gray-700 mb-1">Location</label>
+                    <input type="text" id="modalHotspotLocation" class="form-input" placeholder="e.g., Nairobi CBD">
+                </div>
+                <div>
+                    <label for="modalHotspotVendor" class="block text-sm font-medium text-gray-700 mb-1">Vendor</label>
+                    <select id="modalHotspotVendor" class="form-input form-select">
+                        <option value="">Select Vendor</option>
+                        <option value="mikrotik">MikroTik</option>
+                        <option value="ubiquiti">Ubiquiti</option>
+                        <option value="other">Other</option>
+                    </select>
+                </div>
+                <div class="md:col-span-2 flex justify-end gap-3 mt-4">
+                    <button type="button" class="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300" data-modal="hotspotModal">
+                        Cancel
+                    </button>
+                    <button type="submit" class="px-4 py-2 bg-primary text-white font-semibold rounded-md hover:bg-blue-700">
+                        <i class="fas fa-plus-circle mr-2"></i>Add Hotspot
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Add User Modal -->
+    <div id="userModal" class="modal">
+        <div class="modal-content">
+            <span class="modal-close-button" data-modal="userModal">&times;</span>
+            <h3 class="text-lg font-semibold text-gray-900 mb-4">Add New User</h3>
+            <form class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label for="modalUsername" class="block text-sm font-medium text-gray-700 mb-1">Username</label>
+                    <input type="text" id="modalUsername" class="form-input" placeholder="e.g., newuser123">
+                </div>
+                <div>
+                    <label for="modalUserEmail" class="block text-sm font-medium text-gray-700 mb-1">Email (Optional)</label>
+                    <input type="email" id="modalUserEmail" class="form-input" placeholder="e.g., user@example.com">
+                </div>
+                <div>
+                    <label for="modalUserPassword" class="block text-sm font-medium text-gray-700 mb-1">Password</label>
+                    <input type="password" id="modalUserPassword" class="form-input" placeholder="********">
+                </div>
+                <div>
+                    <label for="modalUserPlan" class="block text-sm font-medium text-gray-700 mb-1">Service Plan</label>
+                    <select id="modalUserPlan" class="form-input form-select">
+                        <option value="">Select Plan</option>
+                        <option value="free">Free 1 Hour</option>
+                        <option value="daily">Daily 10 Mbps</option>
+                        <option value="weekly">Weekly 20 Mbps</option>
+                        <option value="monthly">Monthly Unlimited</option>
+                    </select>
+                </div>
+                <div class="md:col-span-2 flex justify-end gap-3 mt-4">
+                    <button type="button" class="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300" data-modal="userModal">
+                        Cancel
+                    </button>
+                    <button type="submit" class="px-4 py-2 bg-primary text-white font-semibold rounded-md hover:bg-blue-700">
+                        <i class="fas fa-user-plus mr-2"></i>Add User
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Generate Voucher Modal -->
+    <div id="voucherModal" class="modal">
+        <div class="modal-content">
+            <span class="modal-close-button" data-modal="voucherModal">&times;</span>
+            <h3 class="text-lg font-semibold text-gray-900 mb-4">Generate New Vouchers</h3>
+            <form class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label for="modalVoucherQuantity" class="block text-sm font-medium text-gray-700 mb-1">Quantity</label>
+                    <input type="number" id="modalVoucherQuantity" class="form-input" min="1" value="10" placeholder="Number of vouchers">
+                </div>
+                <div>
+                    <label for="modalVoucherDuration" class="block text-sm font-medium text-gray-700 mb-1">Duration</label>
+                    <select id="modalVoucherDuration" class="form-input form-select">
+                        <option value="1h">1 Hour</option>
+                        <option value="24h">24 Hours</option>
+                        <option value="7d">7 Days</option>
+                        <option value="30d">30 Days</option>
+                        <option value="unlimited">Unlimited</option>
+                    </select>
+                </div>
+                <div>
+                    <label for="modalVoucherBandwidth" class="block text-sm font-medium text-gray-700 mb-1">Bandwidth Limit</label>
+                    <select id="modalVoucherBandwidth" class="form-input form-select">
+                        <option value="5">5 Mbps</option>
+                        <option value="10">10 Mbps</option>
+                        <option value="20">20 Mbps</option>
+                        <option value="unlimited">Unlimited</option>
+                    </select>
+                </div>
+                <div>
+                    <label for="modalVoucherPrefix" class="block text-sm font-medium text-gray-700 mb-1">Prefix (Optional)</label>
+                    <input type="text" id="modalVoucherPrefix" class="form-input" placeholder="e.g., WIFI-">
+                </div>
+                <div class="md:col-span-2 flex justify-end gap-3 mt-4">
+                    <button type="button" class="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300" data-modal="voucherModal">
+                        Cancel
+                    </button>
+                    <button type="submit" class="px-4 py-2 bg-primary text-white font-semibold rounded-md hover:bg-blue-700">
+                        <i class="fas fa-magic mr-2"></i>Generate Vouchers
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+
+    <script>
+        // Chart.js initialization for Active Users
+        const usersCtx = document.getElementById('usersChart').getContext('2d');
+        new Chart(usersCtx, {
+            type: 'line',
+            data: {
+                labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+                datasets: [{
+                    label: 'Active Users',
+                    data: [120, 150, 130, 180, 160, 200, 187],
+                    borderColor: 'rgb(59, 130, 246)',
+                    backgroundColor: 'rgba(59, 130, 246, 0.2)',
+                    tension: 0.3,
+                    fill: true
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: false
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true
+                    }
+                }
+            }
+        });
+
+        // Chart.js initialization for Data Usage
+        const dataCtx = document.getElementById('dataChart').getContext('2d');
+        new Chart(dataCtx, {
+            type: 'bar',
+            data: {
+                labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
+                datasets: [{
+                    label: 'Data Usage (GB)',
+                    data: [280, 310, 290, 330, 300, 342],
+                    backgroundColor: [
+                        '#8b5cf6',
+                        '#8b5cf6',
+                        '#8b5cf6',
+                        '#8b5cf6',
+                        '#8b5cf6',
+                        '#8b5cf6'
+                    ],
+                    borderColor: [
+                        '#8b5cf6',
+                        '#8b5cf6',
+                        '#8b5cf6',
+                        '#8b5cf6',
+                        '#8b5cf6',
+                        '#8b5cf6'
+                    ],
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: false
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true
+                    }
+                }
+            }
+        });
+
+        // Chart.js initialization for Bandwidth Flow (on Bandwidth page)
+        const bandwidthFlowCtx = document.getElementById('bandwidthFlowChart');
+        if (bandwidthFlowCtx) { // Ensure the canvas element exists before initializing
+            new Chart(bandwidthFlowCtx.getContext('2d'), {
+                type: 'line',
+                data: {
+                    labels: ['00:00', '02:00', '04:00', '06:00', '08:00', '10:00', '12:00', '14:00', '16:00', '18:00', '20:00', '22:00'],
+                    datasets: [{
+                        label: 'Download (Mbps)',
+                        data: [5, 8, 12, 15, 20, 25, 30, 28, 22, 18, 10, 7],
+                        borderColor: 'rgb(37, 99, 235)',
+                        backgroundColor: 'rgba(37, 99, 235, 0.2)',
+                        tension: 0.4,
+                        fill: false
+                    },
+                    {
+                        label: 'Upload (Mbps)',
+                        data: [2, 3, 5, 6, 8, 10, 12, 11, 9, 7, 4, 3],
+                        borderColor: 'rgb(14, 165, 233)',
+                        backgroundColor: 'rgba(14, 165, 233, 0.2)',
+                        tension: 0.4,
+                        fill: false
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                        },
+                        title: {
+                            display: false,
+                            text: 'Real-time Bandwidth Flow'
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: 'Bandwidth (Mbps)'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+
+        // Mobile menu toggle functionality
+        const menuToggle = document.getElementById('menu-toggle');
+        const sidebar = document.querySelector('.sidebar');
+        const overlay = document.getElementById('overlay');
+        const pageTitle = document.getElementById('page-title');
+
+        menuToggle.addEventListener('click', () => {
+            sidebar.classList.toggle('active');
+            overlay.classList.toggle('hidden');
+        });
+
+        overlay.addEventListener('click', () => {
+            sidebar.classList.remove('active');
+            overlay.classList.add('hidden');
+        });
+
+        // Function to show a specific content section
+        function showContent(targetId) {
+            // Hide all content sections
+            document.querySelectorAll('.content-section').forEach(section => {
+                section.classList.remove('active');
+            });
+
+            // Show the target content section
+            const targetSection = document.getElementById(targetId);
+            if (targetSection) {
+                targetSection.classList.add('active');
+                // Update page title based on the active section
+                pageTitle.textContent = targetSection.id.replace('-content', '').split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+            }
+
+            // Update active link in sidebar
+            document.querySelectorAll('.sidebar-link').forEach(link => {
+                link.classList.remove('bg-primary', 'text-white');
+                link.classList.add('text-gray-300', 'hover:bg-gray-800', 'hover:text-white');
+            });
+            const activeLink = document.querySelector(`.sidebar-link[data-target="${targetId}"]`);
+            if (activeLink) {
+                activeLink.classList.remove('text-gray-300', 'hover:bg-gray-800', 'hover:text-white');
+                activeLink.classList.add('bg-primary', 'text-white');
+            }
+
+            // Close sidebar on mobile after selection
+            if (window.innerWidth < 768) {
+                sidebar.classList.remove('active');
+                overlay.classList.add('hidden');
+            }
+        }
+
+        // Add event listeners to sidebar links
+        document.querySelectorAll('.sidebar-link').forEach(link => {
+            link.addEventListener('click', (e) => {
+                e.preventDefault(); // Prevent default link behavior
+                const targetId = e.currentTarget.getAttribute('data-target');
+                showContent(targetId);
+            });
+        });
+
+        // Initially show the dashboard content when the page loads
+        document.addEventListener('DOMContentLoaded', () => {
+            showContent('dashboard-content');
+        });
+
+
+        // Modal functionality
+        function openModal(modalId) {
+            document.getElementById(modalId).classList.add('open');
+        }
+
+        function closeModal(modalId) {
+            document.getElementById(modalId).classList.remove('open');
+        }
+
+        // Event listeners for opening modals
+        document.getElementById('openHotspotModal')?.addEventListener('click', () => openModal('hotspotModal'));
+        document.getElementById('openUserModal')?.addEventListener('click', () => openModal('userModal'));
+        document.getElementById('openVoucherModal')?.addEventListener('click', () => openModal('voucherModal'));
+
+        // Event listeners for closing modals using the close button
+        document.querySelectorAll('.modal-close-button').forEach(button => {
+            button.addEventListener('click', (e) => {
+                const modalId = e.target.getAttribute('data-modal');
+                closeModal(modalId);
+            });
+        });
+
+        // Close modal when clicking outside the modal content
+        document.querySelectorAll('.modal').forEach(modal => {
+            modal.addEventListener('click', (e) => {
+                if (e.target.classList.contains('modal')) {
+                    closeModal(e.target.id);
+                }
+            });
+        });
+
+        // Close modal when pressing escape key
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                document.querySelectorAll('.modal.open').forEach(modal => {
+                    closeModal(modal.id);
+                });
+            }
+        });
+    </script>
+</body>
+</html>
